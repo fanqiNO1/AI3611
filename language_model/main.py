@@ -76,6 +76,7 @@ def train(model, device, train_loader, lr, clip, epoch, log_interval, writer):
             p.data.add_(p.grad, alpha=-lr)
         # Write to tensorboard
         writer.add_scalar("train/loss", loss_value.item(), (epoch - 1) * len(train_loader) + batch_idx)
+        writer.add_scalar("train/PPL", PPL(loss_value).item(), (epoch - 1) * len(train_loader) + batch_idx)
         # Log
         total_loss += loss_value
         if (batch_idx + 1) % log_interval == 0:
@@ -85,7 +86,7 @@ def train(model, device, train_loader, lr, clip, epoch, log_interval, writer):
             logging.info(f"Train Epoch: {epoch} [{batch_idx + 1}/{len(train_loader)}] Loss: {current_loss.item():.4f} PPL: {PPL_value.item():.4f}")
 
 
-def evalute(model, device, data_loader, epoch, writer):
+def evalute(model, device, data_loader, epoch, writer=None):
     model.eval()
     loss_value = 0
     if isinstance(model, RNN):
@@ -100,7 +101,9 @@ def evalute(model, device, data_loader, epoch, writer):
             loss_current = loss(output, target)
             loss_value += loss_current * len(data)
             # Write to tensorboard
-            writer.add_scalar("eval/loss", loss_current.item(), (epoch - 1) * len(data_loader) + batch_idx)
+            if writer is not None:
+                writer.add_scalar("eval/loss", loss_current.item(), (epoch - 1) * len(data_loader) + batch_idx)
+                writer.add_scalar("eval/PPL", PPL(loss_current).item(), (epoch - 1) * len(data_loader) + batch_idx)
     loss_value /= (len(data_loader.data) - 1)
     PPL_value = PPL(loss_value)
     logging.info(f"Eval Epoch: {epoch} Loss: {loss_value.item():.4f} PPL: {PPL_value.item():.4f}")
@@ -187,7 +190,7 @@ def main(args):
             args.lr /= 4.0
     # Test
     model.load_state_dict(torch.load(f"{args.save_path}/{model_name}"))
-    loss_test, PPL_test = evalute(model, device, test_loader, -1, writer)
+    loss_test, PPL_test = evalute(model, device, test_loader, -1)
     logging.info(f"Test Loss: {loss_test.item():.4f} PPL: {PPL_test.item():.4f}")
 
 
